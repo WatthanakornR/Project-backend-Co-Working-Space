@@ -46,7 +46,7 @@ exports.register = async(req, res, next) => {
 // @route    POST /api/v1/auth/login
 //@access   Public
 exports.login = async(req, res, next) => {
-
+    try{
     
         const {email, password} = req.body;
 
@@ -69,7 +69,11 @@ exports.login = async(req, res, next) => {
 
         //create token
         sendTokenResponse(user, 200, res);
-
+    }
+    catch(err){
+        res.status(400).json({ success: false,msg: 'Invalid credentials'});
+        console.log(err.stack);
+    }
 
 };
 
