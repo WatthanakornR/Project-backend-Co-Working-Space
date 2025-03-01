@@ -1,6 +1,6 @@
 const Reservation = require('../models/Reservation');
 const CoWorkingSpace = require('../models/CoWorkingSpace');
-const Log = require('../models/Logs');
+const Log = require('../models/Log');
 
 // @desc    Get all reservations    
 // @route   GET /api/v1/reservations
@@ -68,6 +68,21 @@ exports.addReservation = async(req, res, next) => {
             });
         }
 
+        // convert string to Date object
+         const startTime = new Date(req.body.startTime);
+         const endTime = new Date(req.body.endTime);
+ 
+         // split the time from the date object
+         const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
+         const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
+ 
+         // check if the reservation time is within the opening hours of the coworking space
+         if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
+             return res.status(400).json({
+                 success: false,
+                 message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
+             });
+         }
 
         req.body.user = req.user.id;
 
@@ -79,9 +94,31 @@ exports.addReservation = async(req, res, next) => {
             });
         }
 
+        // Overlapping reservation
+        const overlappingReservations = await Reservation.find({
+            coworkingspace: req.body.coworkingspace,
+            room_number: req.body.room_number,
+            $or: [
+                { startTime: { $lt: endTime, $gt: startTime } },
+                { endTime: { $lt: endTime, $gt: startTime } },
+                { startTime: { $lte: startTime }, endTime: { $gte: endTime } }
+            ]
+        });
+
+        if (overlappingReservations.length > 0) {
+            const overlappingTimes = overlappingReservations.map(reservation => {
+                return `from ${reservation.startTime} to ${reservation.endTime}`;
+            }).join(', ');
+
+            return res.status(400).json({
+                success: false,
+                message: `The coworking space is already reserved for the selected time period. Overlapping reservations: ${overlappingTimes}`
+            });
+        }
+
         const reservation = await Reservation.create(req.body);
 
-        console.log(`User ${req.user.id} has added a reservation with the id of ${reservation._id}`);
+        // Create log
         await Log.create({
             user: req.user.id,
             reservation: reservation._id,
@@ -116,11 +153,60 @@ exports.updateReservation = async(req, res, next) => {
             return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to update this reservation` });
         }
 
+        // convert string to Date object
+        const startTime = new Date(req.body.startTime);
+        const endTime = new Date(req.body.endTime);
+
+        // split the time from the date object
+        const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
+        const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
+
+        // check if the reservation time is within the opening hours of the coworking space
+        if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
+            return res.status(400).json({
+                success: false,
+                message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
+            });
+        }
+
+        // check if the reservation time is less than 1 hour before the start time
+        const now = new Date();
+        const oneHourBeforeStartTime = new Date(reservation.startTime.getTime() - 60 * 60 * 1000); // 1 ชั่วโมงก่อนเวลาที่จองไว้
+
+        if (now > oneHourBeforeStartTime) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot update reservation less than 1 hour before the start time'
+            });
+        }
+
+        // Overlapping reservation
+        const overlappingReservations = await Reservation.find({
+            coworkingspace: req.body.coworkingspace || reservation.coworkingspace,
+            room_number: req.body.room_number || reservation.room_number,
+            _id: { $ne: req.params.id }, // ยกเว้นการจองปัจจุบัน
+            $or: [
+                { startTime: { $lt: endTime, $gt: startTime } },
+                { endTime: { $lt: endTime, $gt: startTime } },
+                { startTime: { $lte: startTime }, endTime: { $gte: endTime } }
+            ]
+        });
+
+        if (overlappingReservations.length > 0) {
+            const overlappingTimes = overlappingReservations.map(reservation => {
+                return `from ${reservation.startTime} to ${reservation.endTime}`;
+            }).join(', ');
+
+            return res.status(400).json({
+                success: false,
+                message: `The coworking space is already reserved for the selected time period. Overlapping reservations: ${overlappingTimes}`
+            });
+        }
+
         // Update reservation
         reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
 
-        // Create Log to record the reservation
-        console.log(`User ${req.user.id} has updated a reservation with the id of ${reservation._id}`);
+        // Create log
         await Log.create({
             user: req.user.id,
             reservation: reservation._id,
@@ -150,15 +236,14 @@ exports.deleteReservation = async(req, res, next) => {
             return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to delete this reservation`});
         }
         await Reservation.deleteOne({ _id: req.params.id });
-
-         //create Log to record the reservation
-        console.log(`User ${req.user.id} has deleted a reservation with the id of ${reservation._id}`);
-        const logReservation = await Log.create({
-            user: req.user.id, 
-            reservation: reservation._id, 
+        
+        // Create log
+        await Log.create({
+            user: req.user.id,
+            reservation: reservation._id,
             action: 'delete'
         });
-        
+
         res.status(200).json({ success: true, data: {} });
     }
     catch(err){
