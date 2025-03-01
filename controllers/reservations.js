@@ -1,5 +1,6 @@
 const Reservation = require('../models/Reservation');
 const CoWorkingSpace = require('../models/CoWorkingSpace');
+const Log = require('../models/Logs');
 
 // @desc    Get all reservations    
 // @route   GET /api/v1/reservations
@@ -79,6 +80,14 @@ exports.addReservation = async(req, res, next) => {
         }
 
         const reservation = await Reservation.create(req.body);
+
+        console.log(`User ${req.user.id} has added a reservation with the id of ${reservation._id}`);
+        await Log.create({
+            user: req.user.id,
+            reservation: reservation._id,
+            action: 'create'
+        });
+
         res.status(200).json({ success: true, data: reservation });
 
     } catch (err) {
@@ -110,6 +119,14 @@ exports.updateReservation = async(req, res, next) => {
         // Update reservation
         reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
 
+        // Create Log to record the reservation
+        console.log(`User ${req.user.id} has updated a reservation with the id of ${reservation._id}`);
+        await Log.create({
+            user: req.user.id,
+            reservation: reservation._id,
+            action: 'update'
+        });
+
         res.status(200).json({ success: true, data: reservation });
     } catch (err) {
         console.log(err.stack);
@@ -133,6 +150,14 @@ exports.deleteReservation = async(req, res, next) => {
             return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to delete this reservation`});
         }
         await Reservation.deleteOne({ _id: req.params.id });
+
+         //create Log to record the reservation
+        console.log(`User ${req.user.id} has deleted a reservation with the id of ${reservation._id}`);
+        const logReservation = await Log.create({
+            user: req.user.id, 
+            reservation: reservation._id, 
+            action: 'delete'
+        });
         
         res.status(200).json({ success: true, data: {} });
     }
