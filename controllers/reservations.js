@@ -153,56 +153,6 @@ exports.updateReservation = async(req, res, next) => {
             return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to update this reservation` });
         }
 
-        // convert string to Date object
-        const startTime = new Date(req.body.startTime);
-        const endTime = new Date(req.body.endTime);
-
-        // split the time from the date object
-        const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
-        const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
-
-        // check if the reservation time is within the opening hours of the coworking space
-        if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
-            return res.status(400).json({
-                success: false,
-                message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
-            });
-        }
-
-        // check if the reservation time is less than 1 hour before the start time
-        const now = new Date();
-        const oneHourBeforeStartTime = new Date(reservation.startTime.getTime() - 60 * 60 * 1000); // 1 ชั่วโมงก่อนเวลาที่จองไว้
-
-        if (now > oneHourBeforeStartTime) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot update reservation less than 1 hour before the start time'
-            });
-        }
-
-        // Overlapping reservation
-        const overlappingReservations = await Reservation.find({
-            coworkingspace: req.body.coworkingspace || reservation.coworkingspace,
-            room_number: req.body.room_number || reservation.room_number,
-            _id: { $ne: req.params.id }, // ยกเว้นการจองปัจจุบัน
-            $or: [
-                { startTime: { $lt: endTime, $gt: startTime } },
-                { endTime: { $lt: endTime, $gt: startTime } },
-                { startTime: { $lte: startTime }, endTime: { $gte: endTime } }
-            ]
-        });
-
-        if (overlappingReservations.length > 0) {
-            const overlappingTimes = overlappingReservations.map(reservation => {
-                return `from ${reservation.startTime} to ${reservation.endTime}`;
-            }).join(', ');
-
-            return res.status(400).json({
-                success: false,
-                message: `The coworking space is already reserved for the selected time period. Overlapping reservations: ${overlappingTimes}`
-            });
-        }
-
         // Update reservation
         reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
 
@@ -252,3 +202,48 @@ exports.deleteReservation = async(req, res, next) => {
     }
 
 }
+
+
+// @desc    Search reservations by time range
+// @route   GET /api/v1/reservations/search
+// @access  Private
+exports.searchReservationsByTime = async (req, res, next) => {
+    try {
+        const { startTime, endTime } = req.query;
+
+        if (!startTime || !endTime) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide both startTime and endTime'
+            });
+        }
+
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date format for startTime or endTime'
+            });
+        }
+
+        console.log(`Searching reservations from ${start} to ${end}`);
+
+        const reservations = await Reservation.find({
+            $or: [
+                { startTime: { $lt: end, $gt: start } },
+                { endTime: { $lt: end, $gt: start } },
+                { startTime: { $lte: start }, endTime: { $gte: end } }
+            ]
+        }).populate({
+            path: 'coworkingspace',
+            select: 'name location tel'
+        });
+
+        res.status(200).json({ success: true, count: reservations.length, data: reservations });
+    } catch (err) {
+        console.log('Error in searchReservationsByTime:', err.stack);
+        return res.status(500).json({ success: false, message: "Cannot search reservations" });
+    }
+};
