@@ -17,4 +17,3 @@ This project is an Express.js application that provides APIs for coworking space
 7. The system shall allow the admin to view any co-working space reservation.
 8. The system shall allow the admin to edit any co-working space reservation.
 9. The system shall allow the admin to delete any co-working space reservation.
-
