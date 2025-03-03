@@ -8,7 +8,7 @@ const Log = require('../models/Log');
 exports.getReservations = async(req, res, next) => {
     let query;
     if(req.user.role !== 'admin'){
-        query = Reservation.find({ user: req.query.id}).populate({
+        query = Reservation.find({ user: req.user.id}).populate({
             path: 'coworkingspace',
             select: 'name location tel'
         });
