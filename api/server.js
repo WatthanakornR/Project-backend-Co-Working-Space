@@ -74,70 +74,6 @@ const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
 // Security packages
-// const mongoSanitize = require('express-mongo-sanitize');
-// const helmet = require('helmet');
-// const { xss } = require('express-xss-sanitizer');
-// const rateLimit = require('express-rate-limit');
-// const hpp = require('hpp');
-// const cors = require('cors');
-
-// // Load env vars
-// // dotenv.config({ path: './config/config.env' });
-// dotenv.config();
-
-
-// // Connect to database
-// connectDB();
-
-// const app = express();
-
-// // Body parser
-// app.use(express.json());
-
-// // Cookie parser
-// app.use(cookieParser());
-
-// // Sanitize data
-// app.use(mongoSanitize());
-
-// // Set security headers
-// app.use(helmet());
-
-// // Prevent XSS attacks
-// app.use(xss());
-
-// // Rate limiting
-// const limiter = rateLimit({
-//   windowMs: 10 * 60 * 1000, // 10 mins
-//   max: 100
-// });
-// app.use(limiter);
-
-// // Prevent http param pollution
-// app.use(hpp());
-
-// // Enable CORS
-// app.use(cors());
-
-// // Route files
-// const coworkingspaces = require('./routes/coworkingspaces');
-// const auth = require('./routes/auth');
-// const reservations = require('./routes/reservations');
-
-// // Mount routers
-// app.use('/api/v1/coworkingspaces', coworkingspaces);
-// app.use('/api/v1/auth', auth);
-// app.use('/api/v1/reservations', reservations);
-
-// // ❌ DO NOT use app.listen()
-// // ✅ Instead, export the app for Vercel
-// module.exports = app;
-const express = require('express');
-const dotenv = require('dotenv');
-const cookieParser = require('cookie-parser');
-const connectDB = require('./config/db');
-
-// Security Middleware
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
 const { xss } = require('express-xss-sanitizer');
@@ -145,13 +81,14 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const cors = require('cors');
 
-// Load environment variables
+// Load env vars
+// dotenv.config({ path: './config/config.env' });
 dotenv.config();
 
-// Connect to MongoDB
+
+// Connect to database
 connectDB();
 
-// Initialize app
 const app = express();
 
 // Body parser
@@ -160,7 +97,7 @@ app.use(express.json());
 // Cookie parser
 app.use(cookieParser());
 
-// Sanitize input to prevent NoSQL injection
+// Sanitize data
 app.use(mongoSanitize());
 
 // Set security headers
@@ -176,22 +113,22 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Prevent HTTP parameter pollution
+// Prevent http param pollution
 app.use(hpp());
 
 // Enable CORS
 app.use(cors());
 
-// Import routes
+// Route files
 const coworkingspaces = require('./routes/coworkingspaces');
 const auth = require('./routes/auth');
 const reservations = require('./routes/reservations');
 
-// Mount routes
-app.use('/api/v1/auth', auth);
+// Mount routers
 app.use('/api/v1/coworkingspaces', coworkingspaces);
+app.use('/api/v1/auth', auth);
 app.use('/api/v1/reservations', reservations);
-app.use('/api/v1/coworkingspace/:coworkingspaceId/reservations', reservations); // ✅ Nested path for creating reservation with coworkingspaceId
 
-// Vercel: Export app instead of listening to a port
+// ❌ DO NOT use app.listen()
+// ✅ Instead, export the app for Vercel
 module.exports = app;
