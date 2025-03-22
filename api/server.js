@@ -128,7 +128,10 @@ const reservations = require('./routes/reservations');
 app.use('/api/v1/coworkingspaces', coworkingspaces);
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/reservations', reservations);
+app.use('/api/v1/coworkingspace/:coworkingspaceId/reservations', reservations);
 
-// ❌ DO NOT use app.listen()
-// ✅ Instead, export the app for Vercel
+
+
+
+
 module.exports = app;
