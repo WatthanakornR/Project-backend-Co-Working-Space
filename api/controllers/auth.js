@@ -23,6 +23,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 exports.register = async(req, res, next) => {
     try{
         const {name, email,telephone_number, password, role} = req.body;
+        req.query
 
         //Create user
         const user = await User.create({
@@ -32,6 +33,8 @@ exports.register = async(req, res, next) => {
             password,
             role
         });
+
+        
 
         //create token
         sendTokenResponse(user, 200, res);

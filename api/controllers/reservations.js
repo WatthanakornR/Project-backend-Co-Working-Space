@@ -69,20 +69,46 @@ exports.addReservation = async(req, res, next) => {
         }
 
         // convert string to Date object
-         const startTime = new Date(req.body.startTime);
-         const endTime = new Date(req.body.endTime);
+        //  const startTime = new Date(req.body.startTime);
+        //  const endTime = new Date(req.body.endTime);
  
-         // split the time from the date object
-         const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
-         const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
+        //  // split the time from the date object
+        //  const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
+        //  const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
  
-         // check if the reservation time is within the opening hours of the coworking space
-         if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
-             return res.status(400).json({
-                 success: false,
-                 message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
-             });
-         }
+        //  // check if the reservation time is within the opening hours of the coworking space
+        //  if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
+        //      return res.status(400).json({
+        //          success: false,
+        //          message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
+        //      });
+        //  }
+                    const moment = require('moment-timezone');
+
+                    // convert ISO string to Date object
+                    const startTime = new Date(req.body.startTime);
+                    const endTime = new Date(req.body.endTime);
+
+                    // Convert to Thai time (GMT+7)
+                    const localStartTime = moment(startTime).tz("Asia/Bangkok");
+                    const localEndTime = moment(endTime).tz("Asia/Bangkok");
+
+                    // Extract just time portion (HH:mm)
+                    const startTimeString = localStartTime.format('HH:mm');
+                    const endTimeString = localEndTime.format('HH:mm');
+
+                    // Check if within opening hours
+                    if (
+                    startTimeString < coworkingspace.openTime ||
+                    endTimeString > coworkingspace.closeTime
+                    ) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
+                    });
+                    }
+
+        
 
         req.body.user = req.user.id;
 
