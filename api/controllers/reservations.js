@@ -170,35 +170,65 @@ exports.addReservation = async(req, res, next) => {
 //     }
 // }
 
-exports.updateReservation = async(req, res, next) => {
-    try {
-        let reservation = await Reservation.findById(req.params.id);
+const moment = require("moment-timezone");
 
-        if (!reservation) {
-            return res.status(404).json({ success: false, message: `No reservation with the id of ${req.params.id}` });
-        }
+exports.updateReservation = async (req, res, next) => {
+  try {
+    let reservation = await Reservation.findById(req.params.id);
 
-        // Make sure user is reservation owner
-        if (reservation.user.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to update this reservation` });
-        }
-
-        // Update reservation
-        reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-
-        // Create log
-        await Log.create({
-            user: req.user.id,
-            reservation: reservation._id,
-            action: 'update'
-        });
-
-        res.status(200).json({ success: true, data: reservation });
-    } catch (err) {
-        console.log(err.stack);
-        return res.status(500).json({ success: false, message: "Cannot update Reservation" });
+    if (!reservation) {
+      return res.status(404).json({ success: false, message: `No reservation with the id of ${req.params.id}` });
     }
-}
+
+    // Make sure user is reservation owner
+    if (reservation.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to update this reservation` });
+    }
+
+    // ✅ เช็คเวลาทับกับจองอื่น
+    const { startTime, endTime, coworkingspace, room_number } = req.body;
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    const overlaps = await Reservation.find({
+      _id: { $ne: reservation._id }, // exclude current reservation
+      coworkingspace: coworkingspace || reservation.coworkingspace,
+      room_number: room_number || reservation.room_number,
+      $or: [
+        { startTime: { $lt: end, $gt: start } },
+        { endTime: { $lt: end, $gt: start } },
+        { startTime: { $lte: start }, endTime: { $gte: end } }
+      ]
+    });
+
+    if (overlaps.length > 0) {
+      const overlapDetails = overlaps.map(r => {
+        return `from ${moment(r.startTime).tz("Asia/Bangkok").format("HH:mm")} to ${moment(r.endTime).tz("Asia/Bangkok").format("HH:mm")}`;
+      }).join(', ');
+
+      return res.status(400).json({
+        success: false,
+        message: `Time overlaps with another reservation: ${overlapDetails}`
+      });
+    }
+
+    // ✅ Update reservation
+    reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+
+    // ✅ Create log
+    await Log.create({
+      user: req.user.id,
+      reservation: reservation._id,
+      action: 'update'
+    });
+
+    res.status(200).json({ success: true, data: reservation });
+
+  } catch (err) {
+    console.log(err.stack);
+    return res.status(500).json({ success: false, message: "Cannot update Reservation" });
+  }
+};
 
 
 // @desc    Delete a reservation
