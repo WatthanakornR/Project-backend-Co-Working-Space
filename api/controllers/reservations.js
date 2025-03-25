@@ -94,17 +94,8 @@ exports.addReservation = async(req, res, next) => {
                     const localEndTime = moment(endTime).tz("Asia/Bangkok");
 
                     // Extract just time portion (HH:mm)
-                    const startTimeString = startTime.toLocaleTimeString('en-GB', {
-                      hour12: false,
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-          
-                    const endTimeString = endTime.toLocaleTimeString('en-GB', {
-                      hour12: false,
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
+                     const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
+                     const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
 
                     // Check if within opening hours
                     if (
