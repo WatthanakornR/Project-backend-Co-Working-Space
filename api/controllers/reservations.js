@@ -170,108 +170,35 @@ exports.addReservation = async(req, res, next) => {
 //     }
 // }
 
-const moment = require('moment-timezone');
+exports.updateReservation = async(req, res, next) => {
+    try {
+        let reservation = await Reservation.findById(req.params.id);
 
-exports.updateReservation = async (req, res, next) => {
-  try {
-    let reservation = await Reservation.findById(req.params.id);
+        if (!reservation) {
+            return res.status(404).json({ success: false, message: `No reservation with the id of ${req.params.id}` });
+        }
 
-    if (!reservation) {
-      return res.status(404).json({
-        success: false,
-        message: `No reservation with the id of ${req.params.id}`,
-      });
+        // Make sure user is reservation owner
+        if (reservation.user.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({ success: false, message: `User ${req.user.id} is not authorized to update this reservation` });
+        }
+
+        // Update reservation
+        reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+
+        // Create log
+        await Log.create({
+            user: req.user.id,
+            reservation: reservation._id,
+            action: 'update'
+        });
+
+        res.status(200).json({ success: true, data: reservation });
+    } catch (err) {
+        console.log(err.stack);
+        return res.status(500).json({ success: false, message: "Cannot update Reservation" });
     }
-
-    // Check permission
-    if (reservation.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(401).json({
-        success: false,
-        message: `User ${req.user.id} is not authorized to update this reservation`,
-      });
-    }
-
-    // Extract and convert incoming times (assumed ISO 8601 with timezone, e.g. +07:00)
-    const { startTime, endTime } = req.body;
-
-    const start = moment.tz(startTime, 'Asia/Bangkok').toDate();
-    const end = moment.tz(endTime, 'Asia/Bangkok').toDate();
-
-    // Load coworking space
-    const coworkingspace = await CoWorkingSpace.findById(reservation.coworkingspace);
-    if (!coworkingspace) {
-      return res.status(404).json({
-        success: false,
-        message: `No coworkingspace with the id of ${reservation.coworkingspace}`,
-      });
-    }
-
-    // Check if within opening hours
-    const startTimeStr = moment(start).tz('Asia/Bangkok').format('HH:mm');
-    const endTimeStr = moment(end).tz('Asia/Bangkok').format('HH:mm');
-
-    if (
-      startTimeStr < coworkingspace.openTime ||
-      endTimeStr > coworkingspace.closeTime
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: `Reservation time must be within coworking space hours (${coworkingspace.openTime} - ${coworkingspace.closeTime})`,
-      });
-    }
-
-    // Check for overlapping reservations (excluding current one)
-    const overlaps = await Reservation.find({
-      _id: { $ne: reservation._id },
-      coworkingspace: reservation.coworkingspace,
-      room_number: reservation.room_number,
-      $or: [
-        { startTime: { $lt: end, $gt: start } },
-        { endTime: { $lt: end, $gt: start } },
-        { startTime: { $lte: start }, endTime: { $gte: end } },
-      ],
-    });
-
-    if (overlaps.length > 0) {
-      const overlapDetails = overlaps
-        .map((r) => `from ${r.startTime} to ${r.endTime}`)
-        .join(', ');
-
-      return res.status(400).json({
-        success: false,
-        message: `Time overlaps with another reservation: ${overlapDetails}`,
-      });
-    }
-
-    // Update reservation
-    const updatedFields = {
-      startTime: start,
-      endTime: end,
-    };
-
-    reservation = await Reservation.findByIdAndUpdate(
-      req.params.id,
-      updatedFields,
-      { new: true, runValidators: true }
-    );
-
-    // Log update
-    await Log.create({
-      user: req.user.id,
-      reservation: reservation._id,
-      action: 'update',
-    });
-
-    res.status(200).json({ success: true, data: reservation });
-
-  } catch (err) {
-    console.error(err.stack);
-    return res.status(500).json({
-      success: false,
-      message: "Cannot update Reservation",
-    });
-  }
-};
+}
 
 
 // @desc    Delete a reservation
