@@ -83,19 +83,18 @@ exports.addReservation = async(req, res, next) => {
         //          message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
         //      });
         //  }
-                    const moment = require('moment-timezone');
+                    const moment = require("moment-timezone");
 
-                    // convert ISO string to Date object
-                    const startTime = new Date(req.body.startTime);
+                    const startTime = new Date(req.body.startTime); // มี Z → UTC
                     const endTime = new Date(req.body.endTime);
-
-                    // Convert to Thai time (GMT+7)
-                    const localStartTime = moment(startTime).tz("Asia/Bangkok");
-                    const localEndTime = moment(endTime).tz("Asia/Bangkok");
-
-                    // Extract just time portion (HH:mm)
-                     const startTimeString = localStartTime.format('HH:mm');
-                     const endTimeString = localEndTime.format('HH:mm');
+                    
+                    // ✅ ใช้ moment.utc(...) แทน moment(...)
+                    const localStartTime = moment.utc(startTime).tz("Asia/Bangkok");
+                    const localEndTime = moment.utc(endTime).tz("Asia/Bangkok");
+                    
+                    // เวลา string เพื่อตรวจสอบเวลาเปิด-ปิด
+                    const startTimeStr = localStartTime.format("HH:mm");
+                    const endTimeStr = localEndTime.format("HH:mm");
 
                     // Check if within opening hours
                     if (
