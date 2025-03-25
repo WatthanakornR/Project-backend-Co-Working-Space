@@ -53,10 +53,12 @@ exports.getReservation = async(req, res, next) => {
 // @desc    Add reservation
 // @route   POST /api/v1/coworkingspace/:coworkingspaceId/reservations/
 // @access  Private
-exports.addReservation = async (req, res, next) => {
+exports.addReservation = async(req, res, next) => {
+
     try {
         // Add coworkingspace ID to the request body
         req.body.coworkingspace = req.params.coworkingspaceId || req.body.coworkingspace;
+
 
         const coworkingspace = await CoWorkingSpace.findById(req.body.coworkingspace);
         if (!coworkingspace) {
@@ -66,38 +68,24 @@ exports.addReservation = async (req, res, next) => {
             });
         }
 
-        const moment = require("moment-timezone");
+        // convert string to Date object
+         const startTime = new Date(req.body.startTime);
+         const endTime = new Date(req.body.endTime);
+ 
+         // split the time from the date object
+         const startTimeString = startTime.toISOString().split('T')[1].substring(0, 5);
+         const endTimeString = endTime.toISOString().split('T')[1].substring(0, 5);
+ 
+         // check if the reservation time is within the opening hours of the coworking space
+         if (startTimeString < coworkingspace.openTime || endTimeString > coworkingspace.closeTime) {
+             return res.status(400).json({
+                 success: false,
+                 message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
+             });
+         }
 
-        const startTime = new Date(req.body.startTime);
-        const endTime = new Date(req.body.endTime);
-
-        // แปลงจาก UTC → เวลาประเทศไทย (Asia/Bangkok)
-        const localStartTime = moment.utc(startTime).tz("Asia/Bangkok");
-        const localEndTime = moment.utc(endTime).tz("Asia/Bangkok");
-
-        // สร้าง moment เวลาเปิด-ปิดจาก coworkingspace
-        const openTimeMoment = moment(coworkingspace.openTime, "HH:mm");
-        const closeTimeMoment = moment(coworkingspace.closeTime, "HH:mm");
-
-        // สร้าง moment เวลาเริ่ม-จบ เพื่อใช้เปรียบเทียบ
-        const checkStartTime = moment(localStartTime.format("HH:mm"), "HH:mm");
-        const checkEndTime = moment(localEndTime.format("HH:mm"), "HH:mm");
-
-        // ตรวจสอบว่าอยู่ในช่วงเวลาเปิดทำการ
-        if (
-            checkStartTime.isBefore(openTimeMoment) ||
-            checkEndTime.isAfter(closeTimeMoment)
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
-            });
-        }
-
-        // ระบุ user
         req.body.user = req.user.id;
 
-        // จำกัดไม่ให้จองเกิน 3 รายการ
         const existedReservation = await Reservation.find({ user: req.user.id });
         if (existedReservation.length >= 3 && req.user.role !== 'admin') {
             return res.status(400).json({
@@ -106,7 +94,7 @@ exports.addReservation = async (req, res, next) => {
             });
         }
 
-        // ตรวจสอบเวลาจองที่ทับซ้อนกัน
+        // Overlapping reservation
         const overlappingReservations = await Reservation.find({
             coworkingspace: req.body.coworkingspace,
             room_number: req.body.room_number,
@@ -128,10 +116,9 @@ exports.addReservation = async (req, res, next) => {
             });
         }
 
-        // สร้าง reservation
         const reservation = await Reservation.create(req.body);
 
-        // บันทึก log
+        // Create log
         await Log.create({
             user: req.user.id,
             reservation: reservation._id,
@@ -147,8 +134,8 @@ exports.addReservation = async (req, res, next) => {
             message: "Cannot add Reservation"
         });
     }
-};
-
+    
+}
 
 // // @desc    Update a reservation
 // // @route   PUT /api/v1/reservations/:id
