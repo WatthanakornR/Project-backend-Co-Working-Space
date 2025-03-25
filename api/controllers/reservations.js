@@ -85,27 +85,28 @@ exports.addReservation = async(req, res, next) => {
         //  }
                     const moment = require("moment-timezone");
 
-                    const startTime = new Date(req.body.startTime); // มี Z → UTC
+                    const startTime = new Date(req.body.startTime);
                     const endTime = new Date(req.body.endTime);
                     
-                    // ✅ ใช้ moment.utc(...) แทน moment(...)
+                    // ✅ แปลงจาก UTC → เวลาประเทศไทย (Asia/Bangkok)
                     const localStartTime = moment.utc(startTime).tz("Asia/Bangkok");
                     const localEndTime = moment.utc(endTime).tz("Asia/Bangkok");
                     
-                    // เวลา string เพื่อตรวจสอบเวลาเปิด-ปิด
+                    // ✅ แปลงเป็น "HH:mm" string เพื่อใช้เทียบเวลาเปิด-ปิด
                     const startTimeStr = localStartTime.format("HH:mm");
                     const endTimeStr = localEndTime.format("HH:mm");
-
-                    // Check if within opening hours
+                    
+                    // ✅ ตรวจสอบว่าอยู่ในช่วงเวลาเปิดทำการ
                     if (
-                    startTimeString < coworkingspace.openTime ||
-                    endTimeString > coworkingspace.closeTime
+                      startTimeStr < coworkingspace.openTime ||
+                      endTimeStr > coworkingspace.closeTime
                     ) {
-                    return res.status(400).json({
+                      return res.status(400).json({
                         success: false,
                         message: `Reservation time must be within the opening hours of the coworking space (${coworkingspace.openTime} - ${coworkingspace.closeTime})`
-                    });
+                      });
                     }
+
 
         
 
