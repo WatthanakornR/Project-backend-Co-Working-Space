@@ -208,7 +208,7 @@ exports.updateReservation = async (req, res, next) => {
     
       return res.status(400).json({
         success: false,
-        message: `Time overlaps with another reservation: ${overlapDetails}`
+        message: `Time overlaps with another reservation`
       });
     }
 
