@@ -201,11 +201,11 @@ exports.updateReservation = async (req, res, next) => {
       ]
     });
 
-    if (overlaps.length > 0) {
+       if (overlaps.length > 0) {
       const overlapDetails = overlaps.map(r => {
-        return `from ${moment(r.startTime).tz("Asia/Bangkok").format("HH:mm")} to ${moment(r.endTime).tz("Asia/Bangkok").format("HH:mm")}`;
+        return `from ${moment.utc(r.startTime).tz("Asia/Bangkok").format("HH:mm")} to ${moment.utc(r.endTime).tz("Asia/Bangkok").format("HH:mm")}`;
       }).join(', ');
-
+    
       return res.status(400).json({
         success: false,
         message: `Time overlaps with another reservation: ${overlapDetails}`
